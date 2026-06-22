@@ -44,6 +44,41 @@ describe('tools only ever return real dataset listings', () => {
     expect(results.every((r) => r.category === 'dining' && r.city === 'Brookline')).toBe(true);
   });
 
+  it('finds Cape Vernon dining regardless of how the model phrases the search', () => {
+    // All three are realistic tool calls for "dining option in cape vernon".
+    expect(searchListings({ category: 'dining', city: 'Cape Vernon' }).map((r) => r.id)).toContain('din-003');
+    expect(searchListings({ query: 'dining option in cape vernon' }).map((r) => r.id)).toContain('din-003');
+    // The model commonly passes the category word "dining" as a tag; that must
+    // not wipe out results (tags rank, they do not hard-filter).
+    expect(searchListings({ tags: ['dining'], city: 'Cape Vernon' }).map((r) => r.id)).toContain('din-003');
+  });
+
+  it('relaxes a carried-over priceTier when it would leave no results', () => {
+    // Cape Vernon's only dining is Harborlight ($$$). A stale "$" from a prior
+    // "cheap" turn must not hide it — price is relaxed, city/category kept.
+    const results = searchListings({ category: 'dining', city: 'Cape Vernon', priceTier: '$' });
+    expect(results.map((r) => r.id)).toContain('din-003');
+  });
+
+  it('still honours priceTier when it does match something', () => {
+    const results = searchListings({ category: 'dining', city: 'Brookline', priceTier: '$' });
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((r) => r.priceTier === '$')).toBe(true);
+  });
+
+  it('does not let piled-on tags exclude a relevant listing', () => {
+    // Realistic over-tagged call for "cheap breakfast in Brookline": both tags
+    // are real, but no listing has BOTH, so a strict AND would return nothing.
+    const results = searchListings({
+      query: 'breakfast',
+      category: 'dining',
+      city: 'Brookline',
+      priceTier: '$',
+      tags: ['breakfast', 'budget'],
+    });
+    expect(results.map((r) => r.id)).toContain('din-001'); // The Mill House Cafe
+  });
+
   it('getListingById returns undefined for an unknown id (no invention)', () => {
     expect(getListingById('zzz-999')).toBeUndefined();
   });

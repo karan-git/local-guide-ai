@@ -54,6 +54,11 @@ export const VALID_URLS: ReadonlySet<string> = new Set(
   LISTINGS.map((l) => l.externalUrl).filter((u): u is string => u !== null),
 );
 
+/** The controlled tag vocabulary (lowercased) that actually exists in the data. */
+export const VALID_TAGS: ReadonlySet<string> = new Set(
+  LISTINGS.flatMap((l) => l.tags.map((t) => t.toLowerCase())),
+);
+
 export function getListingById(id: string): Listing | undefined {
   return BY_ID.get(id);
 }
@@ -108,28 +113,43 @@ export function searchListings(params: SearchParams): Listing[] {
   const category = params.category ? norm(params.category) : undefined;
   const city = params.city ? norm(params.city) : undefined;
   const priceTier = params.priceTier ? norm(params.priceTier) : undefined;
-  const wantedTags = params.tags?.map(norm) ?? [];
-  const tokens = params.query ? tokenize(params.query) : [];
   const limit = params.limit && params.limit > 0 ? params.limit : 8;
 
-  const matched = LISTINGS.map((l, index) => {
-    if (category && norm(l.category) !== category) return null;
-    if (city && norm(l.city) !== city) return null;
-    if (priceTier && norm(l.priceTier) !== priceTier) return null;
-    if (wantedTags.length && !wantedTags.every((t) => l.tags.map(norm).includes(t))) {
-      return null;
-    }
+  // `tags` are treated as soft ranking keywords, not a hard AND filter: the model
+  // tends to pile on tags ("breakfast" + "budget"), and requiring every one would
+  // wrongly exclude relevant listings. They join the free-text query as keywords.
+  const tagKeywords = params.tags?.map(norm) ?? [];
+  const keywords = [
+    ...new Set([...(params.query ? tokenize(params.query) : []), ...tagKeywords]),
+  ];
 
-    let score = 0;
-    if (tokens.length) {
-      const haystack = norm(`${l.name} ${l.blurb} ${l.tags.join(' ')} ${l.city} ${l.category}`);
-      score = tokens.filter((t) => haystack.includes(t)).length;
-      // With keywords given, a listing must match at least one to be relevant.
-      if (score === 0) return null;
-    }
+  // One filtering pass. `usePrice` lets us re-run without the price refinement.
+  const collect = (usePrice: boolean) => {
+    // When a structured filter is present the user already narrowed the set, so
+    // keywords only RANK. With no filter, keywords are the only criterion, so a
+    // listing must match at least one to be considered relevant.
+    const hasStructuredFilter = Boolean(category || city || (usePrice && priceTier));
+    return LISTINGS.map((l, index) => {
+      if (category && norm(l.category) !== category) return null;
+      if (city && norm(l.city) !== city) return null;
+      if (usePrice && priceTier && norm(l.priceTier) !== priceTier) return null;
 
-    return { listing: l, score, index };
-  }).filter((m): m is { listing: Listing; score: number; index: number } => m !== null);
+      let score = 0;
+      if (keywords.length) {
+        const haystack = norm(`${l.name} ${l.blurb} ${l.tags.join(' ')} ${l.city} ${l.category}`);
+        score = keywords.filter((t) => haystack.includes(t)).length;
+        if (score === 0 && !hasStructuredFilter) return null;
+      }
+
+      return { listing: l, score, index };
+    }).filter((m): m is { listing: Listing; score: number; index: number } => m !== null);
+  };
+
+  let matched = collect(true);
+  // The model often carries a priceTier over from an earlier turn and over-filters
+  // (e.g. asking for "$" dining in a city whose only dining is "$$$"). If the price
+  // refinement leaves nothing, relax it and keep the category/city/keyword intent.
+  if (matched.length === 0 && priceTier) matched = collect(false);
 
   // Highest token-overlap first; stable by dataset order for equal scores.
   matched.sort((a, b) => b.score - a.score || a.index - b.index);

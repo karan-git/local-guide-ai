@@ -16,6 +16,7 @@ import {
   getListingById,
   PRICE_TIERS,
   searchListings,
+  VALID_TAGS,
   type Listing,
 } from '@/lib/listings';
 import { buildSystemPrompt, validateOutput } from '@/lib/guardrails';
@@ -42,11 +43,13 @@ function buildTools(approved: Map<string, Listing>) {
         'Search the fixed local listings dataset. This is the ONLY way to find places. ' +
         'Returns whole listings. Never recommend anything not returned here.',
       inputSchema: z.object({
-        query: z.string().optional().describe('Free-text keywords (name, cuisine, vibe, tag).'),
-        category: z.enum(CATEGORIES).optional().describe('Filter by listing category.'),
+        query: z.string().optional().describe('Free-text keywords (name, cuisine, vibe). Put the category/cuisine here, NOT in tags.'),
+        category: z.enum(CATEGORIES).optional().describe('Filter by listing category (dining, lodging, attraction, venue).'),
         city: z.string().optional().describe('Filter by city, e.g. Brookline, Cape Vernon, Ridgeway.'),
         priceTier: z.enum(PRICE_TIERS).optional().describe('Filter by price tier.'),
-        tags: z.array(z.string()).optional().describe('Require all of these tags.'),
+        tags: z.array(z.string()).optional().describe(
+          `Preferred tags to match and rank by (not all are required). Known dataset tags: ${[...VALID_TAGS].sort().join(', ')}. Put the category/cuisine in query or category, not here.`,
+        ),
         limit: z.number().int().positive().max(18).optional(),
       }),
       execute: async (params) => {
@@ -88,6 +91,14 @@ export async function POST(req: Request) {
     // Allow: tool call -> (optional) tool call -> final answer.
     stopWhen: stepCountIs(5),
     temperature: 0.2,
+    // Force a fresh data lookup on the first step of EVERY turn. Without this,
+    // gpt-4o-mini sometimes answers "no options" from chat history instead of
+    // querying the dataset, so the same question succeeds or fails depending on
+    // what was asked before. Requiring a tool call makes each turn self-contained.
+    prepareStep: ({ stepNumber }) =>
+      stepNumber === 0
+        ? { toolChoice: { type: 'tool', toolName: 'searchListings' } }
+        : {},
   });
 
   const stream = createUIMessageStream<ChatUIMessage>({
