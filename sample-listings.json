@@ -1,0 +1,185 @@
+{
+  "_note": "Synthetic test fixture for the paid screen. Fictional places, not real data. This is the ONLY source of truth the assistant may use.",
+  "listings": [
+    {
+      "id": "din-001",
+      "name": "The Mill House Cafe",
+      "category": "dining",
+      "city": "Brookline",
+      "tags": ["breakfast", "coffee", "vegetarian-friendly"],
+      "priceTier": "$",
+      "blurb": "Small-batch coffee and all-day breakfast in a restored grain mill.",
+      "externalUrl": "https://example.com/mill-house-cafe"
+    },
+    {
+      "id": "lod-001",
+      "name": "Mill House Inn",
+      "category": "lodging",
+      "city": "Brookline",
+      "tags": ["boutique", "pet-friendly"],
+      "priceTier": "$$$",
+      "blurb": "Eight-room boutique inn near the river walk. Note: similar name to The Mill House Cafe but a separate business.",
+      "externalUrl": "https://example.com/mill-house-inn"
+    },
+    {
+      "id": "din-002",
+      "name": "Pancho's Fire Grill",
+      "category": "dining",
+      "city": "Brookline",
+      "tags": ["mexican", "family", "patio"],
+      "priceTier": "$$",
+      "blurb": "Mesquite-grilled tacos and a big shaded patio.",
+      "externalUrl": "https://example.com/panchos"
+    },
+    {
+      "id": "din-003",
+      "name": "Harborlight Oyster Bar",
+      "category": "dining",
+      "city": "Cape Vernon",
+      "tags": ["seafood", "date-night", "waterfront"],
+      "priceTier": "$$$",
+      "blurb": "Raw bar and local catch with a sunset view over the harbor.",
+      "externalUrl": "https://example.com/harborlight"
+    },
+    {
+      "id": "att-001",
+      "name": "Red Cedar Trailhead",
+      "category": "attraction",
+      "city": "Brookline",
+      "tags": ["hiking", "free", "dog-friendly", "outdoors"],
+      "priceTier": "free",
+      "blurb": "Six miles of marked trails through old-growth cedar.",
+      "externalUrl": "https://example.com/red-cedar"
+    },
+    {
+      "id": "att-002",
+      "name": "Vernon County Heritage Museum",
+      "category": "attraction",
+      "city": "Cape Vernon",
+      "tags": ["history", "indoor", "family"],
+      "priceTier": "$",
+      "blurb": "Local maritime and farming history across two floors.",
+      "externalUrl": "https://example.com/heritage-museum"
+    },
+    {
+      "id": "att-003",
+      "name": "Starfall Observatory",
+      "category": "attraction",
+      "city": "Ridgeway",
+      "tags": ["stargazing", "evening", "seasonal"],
+      "priceTier": "$$",
+      "blurb": "Public telescope nights, spring through fall only.",
+      "externalUrl": null
+    },
+    {
+      "id": "lod-002",
+      "name": "Ridgeway Pines Campground",
+      "category": "lodging",
+      "city": "Ridgeway",
+      "tags": ["camping", "budget", "outdoors"],
+      "priceTier": "$",
+      "blurb": "Tent and RV sites with lake access.",
+      "externalUrl": "https://example.com/ridgeway-pines"
+    },
+    {
+      "id": "lod-003",
+      "name": "The Vernon Grand Hotel",
+      "category": "lodging",
+      "city": "Cape Vernon",
+      "tags": ["luxury", "spa", "business"],
+      "priceTier": "$$$$",
+      "blurb": "Historic full-service hotel with a spa and conference space.",
+      "externalUrl": "https://example.com/vernon-grand"
+    },
+    {
+      "id": "ven-001",
+      "name": "The Old Cannery Event Hall",
+      "category": "venue",
+      "city": "Cape Vernon",
+      "tags": ["weddings", "events", "waterfront"],
+      "priceTier": "$$$",
+      "blurb": "Restored cannery with capacity for 200, popular for weddings.",
+      "externalUrl": "https://example.com/old-cannery"
+    },
+    {
+      "id": "ven-002",
+      "name": "Brookline Community Barn",
+      "category": "venue",
+      "city": "Brookline",
+      "tags": ["rustic", "events", "budget"],
+      "priceTier": "$$",
+      "blurb": "Rustic barn venue for up to 120 guests.",
+      "externalUrl": "https://example.com/community-barn"
+    },
+    {
+      "id": "din-004",
+      "name": "Sweetwater Creamery",
+      "category": "dining",
+      "city": "Brookline",
+      "tags": ["dessert", "family", "ice-cream"],
+      "priceTier": "$",
+      "blurb": "House-made ice cream and shakes.",
+      "externalUrl": "https://example.com/sweetwater"
+    },
+    {
+      "id": "din-005",
+      "name": "Tandoor & Vine",
+      "category": "dining",
+      "city": "Ridgeway",
+      "tags": ["indian", "vegetarian-friendly", "dinner"],
+      "priceTier": "$$",
+      "blurb": "Modern Indian plates and a small natural-wine list.",
+      "externalUrl": "https://example.com/tandoor-vine"
+    },
+    {
+      "id": "att-004",
+      "name": "Cape Vernon Lighthouse",
+      "category": "attraction",
+      "city": "Cape Vernon",
+      "tags": ["landmark", "views", "family", "outdoors"],
+      "priceTier": "$",
+      "blurb": "Climb the 1888 lighthouse for harbor views.",
+      "externalUrl": "https://example.com/lighthouse"
+    },
+    {
+      "id": "lod-004",
+      "name": "Brookline Riverside Motel",
+      "category": "lodging",
+      "city": "Brookline",
+      "tags": ["budget", "family"],
+      "priceTier": "$$",
+      "blurb": "Simple riverside rooms within walking distance of downtown.",
+      "externalUrl": "https://example.com/riverside-motel"
+    },
+    {
+      "id": "att-005",
+      "name": "Ridgeway Farmers Market",
+      "category": "attraction",
+      "city": "Ridgeway",
+      "tags": ["market", "free", "weekend", "seasonal"],
+      "priceTier": "free",
+      "blurb": "Saturday market, May through October.",
+      "externalUrl": "https://example.com/farmers-market"
+    },
+    {
+      "id": "din-006",
+      "name": "The Coal Yard BBQ",
+      "category": "dining",
+      "city": "Ridgeway",
+      "tags": ["bbq", "family", "casual"],
+      "priceTier": "$$",
+      "blurb": "Slow-smoked brisket and ribs by the pound.",
+      "externalUrl": "https://example.com/coal-yard"
+    },
+    {
+      "id": "att-006",
+      "name": "Harbor Kayak Rentals",
+      "category": "attraction",
+      "city": "Cape Vernon",
+      "tags": ["watersports", "outdoors", "seasonal"],
+      "priceTier": "$$",
+      "blurb": "Hourly kayak and paddleboard rentals on the bay.",
+      "externalUrl": "https://example.com/harbor-kayak"
+    }
+  ]
+}
