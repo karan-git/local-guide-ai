@@ -5,10 +5,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChatUIMessage, ListingReference } from "@/lib/contract";
 
 const SUGGESTIONS = [
+  // Three specific prompts (with a city) that return listings...
   "Cheap family dinner in Brookline",
-  "Somewhere romantic for date night",
-  "Free outdoorsy things to do",
-  "A wedding venue near the water",
+  "Waterfront seafood in Cape Vernon",
+  "Free things to do in Ridgeway",
+  // ...and one vague prompt with no city, so the assistant asks for details.
+  "Somewhere fun to go",
 ];
 
 export default function Home() {
@@ -77,7 +79,7 @@ export default function Home() {
               <button
                 key={s}
                 onClick={() => submit(s)}
-                className="rounded-full border border-black/15 px-3 py-1 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+                className="rounded-full border border-black/15 px-3 py-1 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10 cursor-pointer"
               >
                 {s}
               </button>

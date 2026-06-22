@@ -49,6 +49,33 @@ describe('tools only ever return real dataset listings', () => {
   });
 });
 
+describe('free-text query matches per-keyword, ranked by overlap', () => {
+  // The three specific homepage suggestion chips are natural phrases naming a
+  // city, not exact tags. Each must surface a relevant listing even when passed
+  // as one free-text query, so a chip never comes back empty.
+  it.each([
+    ['Cheap family dinner in Brookline', 'Pancho'],
+    ['Waterfront seafood in Cape Vernon', 'Harborlight'],
+    ['Free things to do in Ridgeway', 'Ridgeway Farmers Market'],
+  ])('"%s" returns a relevant listing', (query, expectedName) => {
+    const results = searchListings({ query });
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.some((r) => r.name.includes(expectedName))).toBe(true);
+  });
+
+  it('ranks the listing with the most keyword hits first', () => {
+    const results = searchListings({ query: 'wedding venue waterfront' });
+    expect(results[0].name).toContain('Old Cannery'); // matches all three keywords
+  });
+
+  // The fourth chip ("Somewhere fun to go") is intentionally vague with no city,
+  // so the search finds nothing and the assistant falls back to asking for details.
+  it('returns nothing for a vague prompt with no matching keyword', () => {
+    expect(searchListings({ query: 'Somewhere fun to go' })).toHaveLength(0);
+    expect(searchListings({ query: 'sushi nightclub casino' })).toHaveLength(0);
+  });
+});
+
 describe('CASE: normal recommendation — references come only from the approved set', () => {
   it('keeps an approved listing that the reply mentions by name', () => {
     const approved = approvedFrom('din-001', 'din-004');

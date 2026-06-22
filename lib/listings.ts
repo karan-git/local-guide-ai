@@ -70,30 +70,69 @@ export interface SearchParams {
 const norm = (s: string) => s.trim().toLowerCase();
 
 /**
+ * Filler words that carry no listing signal. Dropped from free-text queries so a
+ * natural phrase like "somewhere romantic for date night" matches on its content
+ * words ("romantic", "date", "night") instead of failing on the whole string.
+ */
+const STOP_WORDS = new Set([
+  'the', 'and', 'for', 'with', 'near', 'around', 'something', 'somewhere',
+  'place', 'places', 'spot', 'spots', 'thing', 'things', 'some', 'any',
+  'good', 'nice', 'best', 'find', 'show', 'want', 'looking', 'need', 'where',
+  'what', 'that', 'this', 'have', 'about', 'from', 'into',
+]);
+
+/**
+ * Split a free-text query into meaningful keyword tokens: lowercase words of at
+ * least three characters that aren't filler. Used for partial / multi-word
+ * matching against listings.
+ */
+function tokenize(query: string): string[] {
+  return [
+    ...new Set(
+      norm(query)
+        .split(/[^a-z0-9]+/)
+        .filter((t) => t.length >= 3 && !STOP_WORDS.has(t)),
+    ),
+  ];
+}
+
+/**
  * Pure, deterministic filter over the dataset. No model, no network.
  * Returns whole listings so the model never has to reconstruct any field.
+ *
+ * Free-text `query` matches per-keyword (not as one contiguous string): a
+ * listing is kept if ANY query token appears in its searchable text, and results
+ * are ranked by how many distinct tokens match so the most relevant come first.
  */
 export function searchListings(params: SearchParams): Listing[] {
-  const q = params.query ? norm(params.query) : undefined;
   const category = params.category ? norm(params.category) : undefined;
   const city = params.city ? norm(params.city) : undefined;
   const priceTier = params.priceTier ? norm(params.priceTier) : undefined;
   const wantedTags = params.tags?.map(norm) ?? [];
+  const tokens = params.query ? tokenize(params.query) : [];
   const limit = params.limit && params.limit > 0 ? params.limit : 8;
 
-  const scored = LISTINGS.filter((l) => {
-    if (category && norm(l.category) !== category) return false;
-    if (city && norm(l.city) !== city) return false;
-    if (priceTier && norm(l.priceTier) !== priceTier) return false;
+  const matched = LISTINGS.map((l, index) => {
+    if (category && norm(l.category) !== category) return null;
+    if (city && norm(l.city) !== city) return null;
+    if (priceTier && norm(l.priceTier) !== priceTier) return null;
     if (wantedTags.length && !wantedTags.every((t) => l.tags.map(norm).includes(t))) {
-      return false;
+      return null;
     }
-    if (q) {
-      const haystack = norm(`${l.name} ${l.blurb} ${l.tags.join(' ')} ${l.city} ${l.category}`);
-      if (!haystack.includes(q)) return false;
-    }
-    return true;
-  });
 
-  return scored.slice(0, limit);
+    let score = 0;
+    if (tokens.length) {
+      const haystack = norm(`${l.name} ${l.blurb} ${l.tags.join(' ')} ${l.city} ${l.category}`);
+      score = tokens.filter((t) => haystack.includes(t)).length;
+      // With keywords given, a listing must match at least one to be relevant.
+      if (score === 0) return null;
+    }
+
+    return { listing: l, score, index };
+  }).filter((m): m is { listing: Listing; score: number; index: number } => m !== null);
+
+  // Highest token-overlap first; stable by dataset order for equal scores.
+  matched.sort((a, b) => b.score - a.score || a.index - b.index);
+
+  return matched.slice(0, limit).map((m) => m.listing);
 }
