@@ -6,7 +6,11 @@ import {
   VALID_IDS,
   type Listing,
 } from '@/lib/listings';
-import { validateOutput } from '@/lib/guardrails';
+import {
+  hasPriceIntent,
+  namesUncoveredLocation,
+  validateOutput,
+} from '@/lib/guardrails';
 
 function approvedFrom(...ids: string[]): Map<string, Listing> {
   const map = new Map<string, Listing>();
@@ -136,6 +140,50 @@ describe('CASE: invented listing — cannot reach the card channel', () => {
     expect(references.map((r) => r.id)).toEqual([]); // not in approved set -> not shown
     // No id token in prose, so nothing logged here; the card channel simply stays empty.
     expect(violations).toHaveLength(0);
+  });
+});
+
+describe('CASE: city scoping — cards stay on the requested location', () => {
+  it('suppresses all cards when the user asked about an uncovered location', () => {
+    const approved = approvedFrom('din-001', 'din-004');
+    const text = 'Here are options in Brookline: The Mill House Cafe and Sweetwater Creamery.';
+    const { references, violations } = validateOutput(text, approved, {
+      userText: 'family dinner in paris',
+      requestedUnavailableCity: true,
+    });
+    expect(references).toHaveLength(0);
+    expect(violations.some((v) => v.type === 'out-of-scope-city')).toBe(true);
+  });
+
+  it('flags a location not in the dataset but not covered cities or non-places', () => {
+    expect(namesUncoveredLocation('family dinner in paris')).toBe(true);
+    expect(namesUncoveredLocation('restaurants in new york')).toBe(true);
+    expect(namesUncoveredLocation('dining in cape vernon')).toBe(false);
+    expect(namesUncoveredLocation('something in the evening')).toBe(false);
+    expect(namesUncoveredLocation('i want indian food')).toBe(false);
+  });
+
+  it('detects a price preference only when one is expressed', () => {
+    expect(hasPriceIntent('cheap family dinner')).toBe(true);
+    expect(hasPriceIntent('a $ spot')).toBe(true);
+    expect(hasPriceIntent('family dinner')).toBe(false);
+  });
+
+  it('keeps cards from all cities when the user named no city', () => {
+    const approved = approvedFrom('din-002', 'din-006'); // Brookline + Ridgeway
+    const text = 'Family dining: Pancho\'s Fire Grill and The Coal Yard BBQ.';
+    const { references } = validateOutput(text, approved, { userText: 'family dinner' });
+    expect(references.map((r) => r.id).sort()).toEqual(['din-002', 'din-006']);
+  });
+
+  it('drops cards whose city differs from the city the user named', () => {
+    const approved = approvedFrom('din-001', 'din-003'); // Brookline + Cape Vernon
+    const text = 'Try The Mill House Cafe or Harborlight Oyster Bar.';
+    const { references, violations } = validateOutput(text, approved, {
+      userText: 'dining in cape vernon',
+    });
+    expect(references.map((r) => r.id)).toEqual(['din-003']); // only Cape Vernon kept
+    expect(violations.some((v) => v.type === 'city-mismatch')).toBe(true);
   });
 });
 

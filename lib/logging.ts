@@ -7,7 +7,9 @@
 export type ViolationType =
   | 'unapproved-id' // a listing id not present in this turn's approved tool results
   | 'unapproved-url' // a URL not present in the approved dataset
-  | 'invalid-id'; // an id that does not exist in the dataset at all
+  | 'invalid-id' // an id that does not exist in the dataset at all
+  | 'out-of-scope-city' // a card for a location the user asked about that isn't covered
+  | 'city-mismatch'; // a card whose city differs from the city the user named
 
 export interface Violation {
   type: ViolationType;

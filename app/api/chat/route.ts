@@ -19,7 +19,13 @@ import {
   VALID_TAGS,
   type Listing,
 } from '@/lib/listings';
-import { buildSystemPrompt, validateOutput } from '@/lib/guardrails';
+import {
+  buildSystemPrompt,
+  citiesNamedIn,
+  hasPriceIntent,
+  namesUncoveredLocation,
+  validateOutput,
+} from '@/lib/guardrails';
 import { DISCLAIMER, type ChatUIMessage } from '@/lib/contract';
 import { logToolCall } from '@/lib/logging';
 
@@ -27,12 +33,18 @@ export const maxDuration = 30;
 
 const MODEL = process.env.CHAT_MODEL ?? 'gpt-4o-mini';
 
+/** Per-turn scope flags the tools set and the validator reads. */
+interface TurnScope {
+  /** A search filtered by a city the user never asked about (out-of-scope location). */
+  requestedUnavailableCity: boolean;
+}
+
 /**
  * Builds the per-request tool set. The tools close over `approved` — the set of
  * listings the model has retrieved this turn — which is the ONLY data the final
  * output is allowed to reference. Each tool records what it returns.
  */
-function buildTools(approved: Map<string, Listing>) {
+function buildTools(approved: Map<string, Listing>, userText: string, scope: TurnScope) {
   const remember = (results: Listing[]) => {
     for (const l of results) approved.set(l.id, l);
   };
@@ -53,7 +65,34 @@ function buildTools(approved: Map<string, Listing>) {
         limit: z.number().int().positive().max(18).optional(),
       }),
       execute: async (params) => {
-        const results = searchListings(params);
+        const named = citiesNamedIn(userText);
+
+        // Out-of-scope location: the user named a place we don't cover (e.g.
+        // "dinner in Paris"). Flag it and return nothing so the model refuses
+        // instead of showing other cities' listings.
+        if (named.length === 0 && namesUncoveredLocation(userText)) {
+          scope.requestedUnavailableCity = true;
+          logToolCall('searchListings', []);
+          return { count: 0, listings: [] };
+        }
+
+        // Effective city: the city the user actually named (one of them), or none
+        // — meaning search across EVERY city. When the user doesn't name a city we
+        // don't guess or ask; we just search all of them.
+        const city =
+          named.length === 1
+            ? named[0]
+            : named.length > 1 && params.city &&
+                named.some((c) => c.toLowerCase() === params.city!.toLowerCase())
+              ? params.city
+              : undefined;
+
+        // The model also tends to add a price filter the user never asked for
+        // (e.g. "$"), which silently narrows results. Honor it only when the user
+        // actually expressed a price preference.
+        const priceTier = hasPriceIntent(userText) ? params.priceTier : undefined;
+
+        const results = searchListings({ ...params, city, priceTier });
         remember(results);
         logToolCall('searchListings', results.map((l) => l.id));
         return { count: results.length, listings: results };
@@ -79,9 +118,16 @@ export type AppUIMessage = UIMessage<never, UIDataTypes, ChatTools>;
 export async function POST(req: Request) {
   const { messages }: { messages: ChatUIMessage[] } = await req.json();
 
+  // The latest user message, used to keep recommendations on the requested city.
+  const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+  const userText = (lastUser?.parts ?? [])
+    .map((p) => (p.type === 'text' ? p.text : ''))
+    .join(' ');
+
   // Per-turn approved set: the tools populate this; the validator enforces it.
   const approved = new Map<string, Listing>();
-  const tools = buildTools(approved);
+  const scope: TurnScope = { requestedUnavailableCity: false };
+  const tools = buildTools(approved, userText, scope);
 
   const result = streamText({
     model: openai(MODEL),
@@ -91,14 +137,6 @@ export async function POST(req: Request) {
     // Allow: tool call -> (optional) tool call -> final answer.
     stopWhen: stepCountIs(5),
     temperature: 0.2,
-    // Force a fresh data lookup on the first step of EVERY turn. Without this,
-    // gpt-4o-mini sometimes answers "no options" from chat history instead of
-    // querying the dataset, so the same question succeeds or fails depending on
-    // what was asked before. Requiring a tool call makes each turn self-contained.
-    prepareStep: ({ stepNumber }) =>
-      stepNumber === 0
-        ? { toolChoice: { type: 'tool', toolName: 'searchListings' } }
-        : {},
   });
 
   const stream = createUIMessageStream<ChatUIMessage>({
@@ -111,7 +149,10 @@ export async function POST(req: Request) {
 
       // Wait for generation to complete, then validate against the approved set.
       const finalText = await result.text;
-      const { references, violations } = validateOutput(finalText, approved);
+      const { references, violations } = validateOutput(finalText, approved, {
+        userText,
+        requestedUnavailableCity: scope.requestedUnavailableCity,
+      });
 
       writer.write({
         type: 'data-listings',
